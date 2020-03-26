@@ -1,16 +1,27 @@
 #ifndef _TELLER_H_
 #define _TELLER_H_
 
-/* max idle time is 10 mins */
-#define MAX_IDLE_TIME 10.0 
+#include "Queue.h"
+#include "Customer.h"
+
+#define INIT_IDLE_TIME 10.0   // max idle time before start of service is 600s.
+#define SERVICE_IDLE_TIME 3.0 // max idle time after serving a customer is 150s.
 
 typedef struct Teller
 {
-    int id;
     float idle_time;
 } Teller;
 
 /* Creates a new teller with idle_time */
 Teller *new_teller(float idle_time);
+
+/* Creates a new teller queue */
+LinkedList *new_teller_queue();
+
+/* Enqueue customer to teller_queue */
+void enqueue_customer(LinkedList *teller_queue, Customer *customer);
+
+/* Get front customer from queue */
+Customer *get_front_customer(LinkedList *teller_queue);
 
 #endif

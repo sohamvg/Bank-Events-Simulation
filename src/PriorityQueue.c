@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
 
-Node* new_qnode(void *data, int data_size, int priority)
+pq_Node *pq_new_node(void *data, int data_size, int priority)
 {
-    Node *node = malloc(sizeof(Node));
+    pq_Node *node = malloc(sizeof(pq_Node));
     node->data = malloc(data_size);
     node->priority = priority;
     node->next = NULL;
@@ -14,7 +15,7 @@ Node* new_qnode(void *data, int data_size, int priority)
     return node;
 }
 
-PriorityQueue *new_queue(int data_size)
+PriorityQueue *pq_new_queue(int data_size)
 {
     PriorityQueue *queue = malloc(sizeof(PriorityQueue));
     queue->data_size = data_size;
@@ -25,14 +26,20 @@ PriorityQueue *new_queue(int data_size)
     return queue;
 }
 
-void *get_front(PriorityQueue *queue)
+void *pq_get_front(PriorityQueue *queue)
 {
+    if (queue->front == NULL)
+    {
+        perror("Queue is empty");
+        exit(EXIT_FAILURE);
+    }
+
     return queue->front->data;
 }
 
-void enqueue(PriorityQueue *queue, void *data, int priority)
+void pq_enqueue(PriorityQueue *queue, void *data, int priority)
 {
-    Node *temp = new_qnode(data, queue->data_size, priority);
+    pq_Node *temp = pq_new_node(data, queue->data_size, priority);
 
     if (queue->length == 0)
     {
@@ -45,29 +52,35 @@ void enqueue(PriorityQueue *queue, void *data, int priority)
     }
     else
     {
-        Node *curr = queue->front;
+        pq_Node *curr = queue->front;
 
         while (curr->next != NULL && curr->next->priority >= priority)
         {
             curr = curr->next;
         }
-           
+
         temp->next = curr->next;
         curr->next = temp;
     }
-    
+
     queue->length++;
 }
 
-void dequeue(PriorityQueue *queue)
+void pq_dequeue(PriorityQueue *queue)
 {
-    Node *temp = queue->front;
+    if (queue->front == NULL)
+    {
+        perror("Queue is empty");
+        exit(EXIT_FAILURE);
+    }
+
+    pq_Node *temp = queue->front;
     queue->front = queue->front->next;
     free(temp);
     queue->length--;
 }
 
-bool is_empty(PriorityQueue *queue)
+bool pq_is_empty(PriorityQueue *queue)
 {
     return queue->length == 0;
 }

@@ -3,9 +3,9 @@
 
 Customer *new_customer(float arrival_time)
 {
-    Customer *new_customer = malloc(sizeof(Customer));
-    new_customer->arrival_time = arrival_time;
-    new_customer->service_time = 0;
+    Customer *customer = malloc(sizeof(Customer));
+    customer->arrival_time = arrival_time;
+    customer->service_time = 0;
 
-    return new_customer;
+    return customer;
 }
