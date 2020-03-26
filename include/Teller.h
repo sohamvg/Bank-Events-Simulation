@@ -9,7 +9,8 @@
 
 typedef struct Teller
 {
-    float idle_time;
+    float idle_time;    // initial idle time
+    float total_service_time;
 } Teller;
 
 /* Creates a new teller with idle_time */

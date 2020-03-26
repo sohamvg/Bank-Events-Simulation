@@ -5,6 +5,7 @@ typedef struct Customer
 {
     float arrival_time;
     float service_time;
+    float depart_time;
 } Customer;
 
 /* Creates a new customer with arrival_time */

@@ -5,7 +5,8 @@ Teller *new_teller(float idle_time)
 {
     Teller *teller = malloc(sizeof(Teller));
     teller->idle_time = idle_time;
-
+    teller->total_service_time = 0.0;
+    
     return teller;
 }
 
