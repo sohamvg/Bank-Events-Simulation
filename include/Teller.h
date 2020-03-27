@@ -11,6 +11,7 @@ typedef struct Teller
 {
     float idle_time;    // initial idle time
     float total_service_time;
+    LinkedList *teller_queue;
 } Teller;
 
 /* Creates a new teller with idle_time */

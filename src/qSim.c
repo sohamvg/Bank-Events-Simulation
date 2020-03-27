@@ -8,6 +8,65 @@
 #include <stdbool.h>
 #include <math.h>
 
+LinkedList *get_shortest_teller_queue(Teller *tellers[], int number_of_tellers, int number_of_customers)
+{
+    int min_length = number_of_customers + 1;
+    int count = 0;
+
+    for (int i = 0; i < number_of_tellers; i++)
+    {
+        if (tellers[i]->teller_queue->length == min_length)
+        {
+            count++;
+        }
+
+        if (tellers[i]->teller_queue->length < min_length)
+        {
+            min_length = tellers[i]->teller_queue->length;
+            count = 1;
+        }
+    }
+
+    int n = (rand() % count) + 1; // random number between 1 to count
+    int j = 1;
+
+    LinkedList *teller_queue;
+
+    for (int i = 0; i < number_of_tellers; i++)
+    {
+        if (tellers[i]->teller_queue->length == min_length)
+        {
+            if (j == n)
+            {
+                teller_queue = tellers[i]->teller_queue;
+            }
+            j++;
+        }
+    }
+    return teller_queue;
+};
+
+/* teller serving the customer */
+void serve_customer(Teller *teller, Customer *customer, PriorityQueue *event_queue, float avg_service_time, float simulation_clock)
+{
+    float service_time = 2 * avg_service_time * rand() / (float)(RAND_MAX);
+    float depart_time = service_time + simulation_clock;
+    customer->service_time = service_time;
+    customer->depart_time = depart_time;
+
+    teller->total_service_time += service_time;
+
+    Event *customer_depart_event = new_customer_depart_event(customer, depart_time);
+    Event *teller_service_complete_event = new_teller_event(teller, depart_time);
+
+    enqueue_event(event_queue, teller_service_complete_event);
+    enqueue_event(event_queue, customer_depart_event);
+
+    printf("Not empty queue\n");
+    printf("service time: %f\t", service_time);
+    printf("new time: %f\n", simulation_clock + service_time);
+}
+
 int main(int argc, char **argv)
 {
     if (argc != 5)
@@ -47,10 +106,12 @@ int main(int argc, char **argv)
         printf("teller idle time: %f\n", tellers[i]->idle_time);
     }
 
+    /* Running simulations */
     for (int sim_count = 0; sim_count < 2; sim_count++)
     {
-        PriorityQueue *event_queue = new_event_queue(); // Event queue // TODO: free queues
-        LinkedList *teller_queue = new_teller_queue();  // Teller queue
+        printf("------------- Simulation %d started --------------\n", sim_count + 1);
+
+        PriorityQueue *event_queue = new_event_queue(); // Event queue
 
         /* Creating customer arrival events */
         for (int i = 0; i < number_of_customers; i++)
@@ -71,114 +132,263 @@ int main(int argc, char **argv)
         float simulation_clock = 0.0;          // Current time of simulation
         int total_customer_served = 0;         // total customers served can be different from total customers arriving
         float total_time_served = 0.0;         // service time
-        float total_time_spent = 0.0;          // depart time - arriva time
+        float total_time_spent = 0.0;          // depart time - arrival time
         float time_spent[number_of_customers]; // for standard deviation
         float max_wait_time = 0.0;
 
-        /* Running events */
-        while (!pq_is_empty(event_queue))
+        if (sim_count == 0)
         {
-            printf("---------------events----------------\n");
-            Event *event = (Event *)pq_get_front(event_queue);
-            pq_dequeue(event_queue);
+            LinkedList *teller_queue = new_teller_queue(); // Teller queue
 
-            simulation_clock = event->time;
-            printf("time: %f\n", simulation_clock);
-
-            if (simulation_clock > simulation_time)
+            /* Running events */
+            while (!pq_is_empty(event_queue))
             {
-                printf("Simulation time over \n");
-                break;
-            }
+                printf("---------------events----------------\n");
+                Event *event = (Event *)pq_get_front(event_queue);
+                pq_dequeue(event_queue);
 
-            if (event->type == CUSTOMER_ARRIVE)
-            {
-                printf("Customer Arrive event\n");
+                simulation_clock = event->time;
+                printf("time: %f\n", simulation_clock);
 
-                if (event->customer == NULL)
+                if (simulation_clock > simulation_time)
                 {
-                    perror("Customer arrive event has no customer");
-                    exit(EXIT_FAILURE);
+                    printf("Simulation time over \n");
+                    break;
                 }
 
-                enqueue_customer(teller_queue, event->customer);
-
-                printf("Current teller queue length: %d\n", teller_queue->length);
-            }
-            else if (event->type == CUSTOMER_DEPART)
-            {
-                if (event->customer == NULL)
+                if (event->type == CUSTOMER_ARRIVE)
                 {
-                    perror("Customer depart event has no customer");
-                    exit(EXIT_FAILURE);
+                    printf("Customer Arrive event\n");
+
+                    if (event->customer == NULL)
+                    {
+                        perror("Customer arrive event has no customer");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    enqueue_customer(teller_queue, event->customer);
+
+                    printf("Current teller queue length: %d\n", teller_queue->length);
                 }
-
-                time_spent[total_customer_served] = event->customer->depart_time - event->customer->arrival_time;
-                total_time_spent = total_time_spent + time_spent[total_customer_served];
-                total_time_served = total_time_served + event->customer->service_time;
-
-                float wait_time = time_spent[total_customer_served] - event->customer->service_time;
-                if (wait_time > max_wait_time)
+                else if (event->type == CUSTOMER_DEPART)
                 {
-                    max_wait_time = wait_time;
+                    if (event->customer == NULL)
+                    {
+                        perror("Customer depart event has no customer");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    time_spent[total_customer_served] = event->customer->depart_time - event->customer->arrival_time;
+                    total_time_spent = total_time_spent + time_spent[total_customer_served];
+                    total_time_served = total_time_served + event->customer->service_time;
+
+                    float wait_time = time_spent[total_customer_served] - event->customer->service_time;
+                    if (wait_time > max_wait_time)
+                    {
+                        max_wait_time = wait_time;
+                    }
+                    total_customer_served++;
+
+                    printf("customer left the bank\n");
+                    free(event);
                 }
-                total_customer_served++;
-
-                printf("customer left the bank\n");
-                free(event);
-            }
-            else if (event->type == TELLER_EVENT)
-            {
-                printf("Teller event\n");
-
-                if (event->teller == NULL)
+                else if (event->type == TELLER_EVENT)
                 {
-                    perror("Teller event has no teller");
-                    exit(EXIT_FAILURE);
-                }
+                    printf("Teller event\n");
 
-                if (q_is_empty(teller_queue))
-                {
-                    float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
-                    Event *teller_idle_event = new_teller_event(event->teller, simulation_clock + idle_time);
-                    enqueue_event(event_queue, teller_idle_event);
+                    if (event->teller == NULL)
+                    {
+                        perror("Teller event has no teller");
+                        exit(EXIT_FAILURE);
+                    }
 
-                    printf("Empty queue\n");
-                    printf("idle time: %f\t", idle_time);
-                    printf("new time: %f\n", simulation_clock + idle_time);
+                    if (q_is_empty(teller_queue))
+                    {
+                        float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
+                        Event *teller_idle_event = new_teller_event(event->teller, simulation_clock + idle_time);
+                        enqueue_event(event_queue, teller_idle_event);
+
+                        printf("Empty queue\n");
+                        printf("idle time: %f\t", idle_time);
+                        printf("new time: %f\n", simulation_clock + idle_time);
+                    }
+                    else
+                    {
+                        Customer *customer = get_front_customer(teller_queue);
+                        q_dequeue(teller_queue);
+
+                        serve_customer(event->teller, customer, event_queue, avg_service_time, simulation_clock);
+                    }
                 }
                 else
                 {
-                    Customer *customer = get_front_customer(teller_queue);
-                    q_dequeue(teller_queue);
-
-                    float service_time = 2 * avg_service_time * rand() / (float)(RAND_MAX);
-                    float depart_time = service_time + simulation_clock;
-                    customer->service_time = service_time;
-                    customer->depart_time = depart_time;
-
-                    event->teller->total_service_time += service_time;
-
-                    Event *customer_depart_event = new_customer_depart_event(customer, depart_time);
-                    Event *teller_service_complete_event = new_teller_event(event->teller, depart_time);
-
-                    enqueue_event(event_queue, teller_service_complete_event);
-                    enqueue_event(event_queue, customer_depart_event);
-
-                    printf("Not empty queue\n");
-                    printf("service time: %f\t", service_time);
-                    printf("new time: %f\n", simulation_clock + service_time);
+                    perror("No matching event type");
+                    exit(EXIT_FAILURE);
                 }
-            }
-            else
-            {
-                perror("No matching event type");
-                exit(EXIT_FAILURE);
+
+                printf("-------------------------------\n");
             }
 
-            printf("-------------------------------\n");
+            /* Free teller queue */
+            while (!q_is_empty(teller_queue))
+            {
+                q_dequeue(teller_queue);
+            }
+            free(teller_queue);
+        }
+        else
+        {
+            /* Creating multiple teller queues */
+            for (int i = 0; i < number_of_tellers; i++)
+            {
+                tellers[i]->teller_queue = new_teller_queue();
+            }
+
+            /* Running events */
+            while (!pq_is_empty(event_queue))
+            {
+                printf("---------------events----------------\n");
+                Event *event = (Event *)pq_get_front(event_queue);
+                pq_dequeue(event_queue);
+
+                simulation_clock = event->time;
+                printf("time: %f\n", simulation_clock);
+
+                if (simulation_clock > simulation_time)
+                {
+                    printf("Simulation time over \n");
+                    break;
+                }
+
+                if (event->type == CUSTOMER_ARRIVE)
+                {
+                    printf("Customer Arrive event\n");
+
+                    if (event->customer == NULL)
+                    {
+                        perror("Customer arrive event has no customer");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    // select shortest teller queue
+                    LinkedList *teller_queue = get_shortest_teller_queue(tellers, number_of_tellers, number_of_customers);
+
+                    enqueue_customer(teller_queue, event->customer);
+
+                    printf("Current teller queue length: %d\n", teller_queue->length);
+                }
+                else if (event->type == CUSTOMER_DEPART)
+                {
+                    if (event->customer == NULL)
+                    {
+                        perror("Customer depart event has no customer");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    time_spent[total_customer_served] = event->customer->depart_time - event->customer->arrival_time;
+                    total_time_spent = total_time_spent + time_spent[total_customer_served];
+                    total_time_served = total_time_served + event->customer->service_time;
+
+                    float wait_time = time_spent[total_customer_served] - event->customer->service_time;
+                    if (wait_time > max_wait_time)
+                    {
+                        max_wait_time = wait_time;
+                    }
+                    total_customer_served++;
+
+                    printf("customer left the bank\n");
+                    free(event);
+                }
+                else if (event->type == TELLER_EVENT)
+                {
+                    printf("Teller event\n");
+
+                    if (event->teller == NULL)
+                    {
+                        perror("Teller event has no teller");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    if (q_is_empty(event->teller->teller_queue))
+                    {
+                        int non_empty_queue_count = 0;
+
+                        for (int i = 0; i < number_of_tellers; i++)
+                        {
+                            if (tellers[i]->teller_queue->length != 0)
+                            {
+                                non_empty_queue_count++;
+                            }
+                        }
+
+                        if (non_empty_queue_count == 0)
+                        {
+                            float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
+                            Event *teller_idle_event = new_teller_event(event->teller, simulation_clock + idle_time);
+                            enqueue_event(event_queue, teller_idle_event);
+
+                            printf("Empty queue\n");
+                            printf("idle time: %f\t", idle_time);
+                            printf("new time: %f\n", simulation_clock + idle_time);
+                        }
+                        else
+                        {
+                            Customer *customer;
+                            int n = (rand() % non_empty_queue_count) + 1; // randum number between 1 and non_empty_queue_count
+                            int j = 1;
+
+                            for (int i = 0; i < number_of_tellers; i++)
+                            {
+                                if (tellers[i]->teller_queue->length != 0)
+                                {
+                                    if (j == n)
+                                    {
+                                        customer = get_front_customer(tellers[i]->teller_queue);
+                                        q_dequeue(tellers[i]->teller_queue);
+                                    }
+                                    j++;
+                                }
+                            }
+
+                            serve_customer(event->teller, customer, event_queue, avg_service_time, simulation_clock);
+                        }
+                    }
+                    else
+                    {
+                        Customer *customer = get_front_customer(event->teller->teller_queue);
+                        q_dequeue(event->teller->teller_queue);
+
+                        serve_customer(event->teller, customer, event_queue, avg_service_time, simulation_clock);
+                    }
+                }
+                else
+                {
+                    perror("No matching event type");
+                    exit(EXIT_FAILURE);
+                }
+
+                printf("-------------------------------\n");
+            }
+
+            /* Free teller queues */
+            for (int i = 0; i < number_of_tellers; i++)
+            {
+                while (!q_is_empty(tellers[i]->teller_queue))
+                {
+                    q_dequeue(tellers[i]->teller_queue);
+                }
+                free(tellers[i]->teller_queue);
+            }
         }
 
+        /* Free events */
+        while (!pq_is_empty(event_queue))
+        {
+            pq_dequeue(event_queue);
+        }
+        free(event_queue);
+
+        /* Stats */
         float avg_time_spent = total_time_spent / total_customer_served;
         float sq_diff_time_spent = 0.0;
 
@@ -193,7 +403,16 @@ int main(int argc, char **argv)
         printf("total customers served: %d\n", total_customer_served);
         printf("total time required to serve all customers: %f\n", total_time_served);
         printf("Number of tellers: %d\n", number_of_tellers);
-        printf("Type of queuing: common\n");
+
+        if (sim_count == 0)
+        {
+            printf("Type of queuing: common\n");
+        }
+        else
+        {
+            printf("Type of queuing: multiple teller queues\n");
+        }
+
         printf("Average time a customer spent in the bank: %f\n", avg_time_spent);
         printf("Standard deviation: %f\n", sd_time_spent);
         printf("Maximum wait time from the time a customer arrives to the time he/she is seen by a teller: %f\n", max_wait_time);
@@ -205,30 +424,14 @@ int main(int argc, char **argv)
             printf("idle time: %f\n", simulation_time - tellers[i]->total_service_time);
         }
 
-        /* Free events */
-        while (!pq_is_empty(event_queue))
-        {
-            pq_dequeue(event_queue);    
-        }
-        free(event_queue);
-
-        while (!q_is_empty(teller_queue))
-        {
-            q_dequeue(teller_queue);
-        }
-        free(teller_queue);
+        printf("-------------- Simulation %d finished -------------\n", sim_count + 1);
     }
 
-    /* Free customers and tellers */
-    for (int i = 0; i < number_of_customers; i++)
-    {
-        free(customers[i]);
-    }
+    /* Free tellers (customers are freed with teller queues) */
     for (int i = 0; i < number_of_tellers; i++)
     {
         free(tellers[i]);
     }
-    
 
     return 0;
 }
