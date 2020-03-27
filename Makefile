@@ -4,6 +4,7 @@ SRC_DIR = src
 INC_DIR = include
 OBJ_DIR = obj
 EXE_DIR = bin
+OUT_DIR = output
 EXE = qSim
 
 LIBS = -lm # math library
