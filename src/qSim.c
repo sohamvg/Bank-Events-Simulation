@@ -54,7 +54,7 @@ void serve_customer(Teller *teller, Customer *customer, PriorityQueue *event_que
     customer->service_time = service_time;
     customer->depart_time = depart_time;
 
-    teller->total_service_time += service_time;
+    teller->total_service_time = teller->total_service_time + service_time;
 
     Event *customer_depart_event = new_customer_depart_event(customer, depart_time);
     Event *teller_service_complete_event = new_teller_event(teller, depart_time);
@@ -65,6 +65,20 @@ void serve_customer(Teller *teller, Customer *customer, PriorityQueue *event_que
     fprintf(file, "Not empty queue\n");
     fprintf(file, "service time: %f\t", service_time);
     fprintf(file, "new time: %f\n", simulation_clock + service_time);
+}
+
+/* Teller idle event */
+void set_to_idle(Teller *teller, PriorityQueue *event_queue, float simulation_clock, FILE *file)
+{
+    float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
+    teller->total_idle_time = teller->total_idle_time + idle_time;
+
+    Event *teller_idle_event = new_teller_event(teller, simulation_clock + idle_time);
+    enqueue_event(event_queue, teller_idle_event);
+
+    fprintf(file, "Empty queue\n");
+    fprintf(file, "idle time: %f\t", idle_time);
+    fprintf(file, "new time: %f\n", simulation_clock + idle_time);
 }
 
 int main(int argc, char **argv)
@@ -135,6 +149,8 @@ int main(int argc, char **argv)
             enqueue_event(event_queue, teller_idle_event);
         }
 
+        int event_counter = 0;
+
         /* Variables for stats */
         float simulation_clock = 0.0;          // Current time of simulation
         int total_customer_served = 0;         // total customers served can be different from total customers arriving
@@ -150,18 +166,15 @@ int main(int argc, char **argv)
             /* Running events */
             while (!pq_is_empty(event_queue))
             {
-                fprintf(file, "---------------events----------------\n");
+                event_counter++;
+
+                fprintf(file, "---------------event %d ----------------\n", event_counter);
+                fprintf(file, "event queue len: %d\n", event_queue->length);
                 Event *event = (Event *)pq_get_front(event_queue);
                 pq_dequeue(event_queue);
 
                 simulation_clock = event->time;
                 fprintf(file, "time: %f\n", simulation_clock);
-
-                if (simulation_clock > simulation_time)
-                {
-                    fprintf(file, "Simulation time over \n");
-                    break;
-                }
 
                 if (event->type == CUSTOMER_ARRIVE)
                 {
@@ -211,13 +224,10 @@ int main(int argc, char **argv)
 
                     if (q_is_empty(teller_queue))
                     {
-                        float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
-                        Event *teller_idle_event = new_teller_event(event->teller, simulation_clock + idle_time);
-                        enqueue_event(event_queue, teller_idle_event);
-
-                        fprintf(file, "Empty queue\n");
-                        fprintf(file, "idle time: %f\t", idle_time);
-                        fprintf(file, "new time: %f\n", simulation_clock + idle_time);
+                        if (simulation_clock < simulation_time)
+                        {
+                            set_to_idle(event->teller, event_queue, simulation_clock, file);
+                        }
                     }
                     else
                     {
@@ -254,18 +264,15 @@ int main(int argc, char **argv)
             /* Running events */
             while (!pq_is_empty(event_queue))
             {
-                fprintf(file, "---------------events----------------\n");
+                event_counter++;
+
+                fprintf(file, "---------------event %d ----------------\n", event_counter);
+                fprintf(file, "event queue len: %d\n", event_queue->length);
                 Event *event = (Event *)pq_get_front(event_queue);
                 pq_dequeue(event_queue);
 
                 simulation_clock = event->time;
                 fprintf(file, "time: %f\n", simulation_clock);
-
-                if (simulation_clock > simulation_time)
-                {
-                    fprintf(file, "Simulation time over \n");
-                    break;
-                }
 
                 if (event->type == CUSTOMER_ARRIVE)
                 {
@@ -330,13 +337,10 @@ int main(int argc, char **argv)
 
                         if (non_empty_queue_count == 0)
                         {
-                            float idle_time = SERVICE_IDLE_TIME * rand() / (float)(RAND_MAX);
-                            Event *teller_idle_event = new_teller_event(event->teller, simulation_clock + idle_time);
-                            enqueue_event(event_queue, teller_idle_event);
-
-                            fprintf(file, "Empty queue\n");
-                            fprintf(file, "idle time: %f\t", idle_time);
-                            fprintf(file, "new time: %f\n", simulation_clock + idle_time);
+                            if (simulation_clock < simulation_time)
+                            {
+                                set_to_idle(event->teller, event_queue, simulation_clock, file);
+                            }
                         }
                         else
                         {
@@ -388,13 +392,6 @@ int main(int argc, char **argv)
             }
         }
 
-        /* Free events */
-        while (!pq_is_empty(event_queue))
-        {
-            pq_dequeue(event_queue);
-        }
-        free(event_queue);
-
         /* Stats */
         float avg_time_spent = total_time_spent / total_customer_served;
         float sq_diff_time_spent = 0.0;
@@ -428,14 +425,14 @@ int main(int argc, char **argv)
         {
             printf("teller %d\t", i + 1);
             printf("service time: %f\t\t", tellers[i]->total_service_time);
-            printf("idle time: %f\n", simulation_time - tellers[i]->total_service_time);
+            printf("idle time: %f\n", tellers[i]->total_idle_time);
         }
 
         printf("-------------- Simulation %d finished -------------\n", sim_count + 1);
         fprintf(file, "-------------- Simulation %d finished -------------\n", sim_count + 1);
     }
 
-    /* Free tellers (customers are freed with teller queues) */
+    /* Free tellers (customers are freed with teller queues and events are freed with event queue) */
     for (int i = 0; i < number_of_tellers; i++)
     {
         free(tellers[i]);

@@ -11,6 +11,7 @@ typedef struct Teller
 {
     float idle_time;    // initial idle time
     float total_service_time;
+    float total_idle_time;
     LinkedList *teller_queue;
 } Teller;
 

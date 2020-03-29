@@ -28,3 +28,5 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 
 clean:
 	rm -rf $(OBJ_DIR)/*
+	rm -rf $(EXE_DIR)/*
+	rm -rf $(OUT_DIR)/*
