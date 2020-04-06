@@ -1,12 +1,13 @@
 #include "Teller.h"
 #include <stdlib.h>
 
-Teller *new_teller(float idle_time)
+Teller *new_teller(float init_idle_time)
 {
     Teller *teller = malloc(sizeof(Teller));
-    teller->idle_time = idle_time;
+    teller->init_idle_time = init_idle_time;
+    teller->total_idle_time = init_idle_time; // Add initial idle time to total idle time
     teller->total_service_time = 0.0;
-    
+
     return teller;
 }
 

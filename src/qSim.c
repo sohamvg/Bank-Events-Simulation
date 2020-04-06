@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <math.h>
 
+/* Get shortest teller queue */
 LinkedList *get_shortest_teller_queue(Teller *tellers[], int number_of_tellers, int number_of_customers)
 {
     int min_length = number_of_customers + 1;
@@ -81,29 +82,17 @@ void set_to_idle(Teller *teller, PriorityQueue *event_queue, float simulation_cl
     fprintf(file, "new time: %f\n", simulation_clock + idle_time);
 }
 
-int main(int argc, char **argv)
+/* Run simulation
+    mode = 1 for simulation single teller queue (plotting graph)
+    mode = 2 for simulating both single and then multiple teller queue
+ */
+float run_simulation(int number_of_customers, int number_of_tellers, float simulation_time, float avg_service_time, int mode)
 {
-    if (argc != 5)
-    {
-        printf("Enter all arguments\n");
-        exit(EXIT_SUCCESS);
-    }
-
     FILE *file = fopen("output/event_logs.txt", "w");
     if (file == NULL)
     {
         printf("Could not open log file. Continuing...\n");
     }
-
-    int number_of_customers = atoi(argv[1]);
-    int number_of_tellers = atoi(argv[2]);
-    float simulation_time = atof(argv[3]);
-    float avg_service_time = atof(argv[4]);
-
-    printf("Number of customers: %d\n", number_of_customers);
-    printf("Number of tellers: %d\n", number_of_tellers);
-    printf("Simulation time: %f\n", simulation_time);
-    printf("Average service time: %f\n", avg_service_time);
 
     Teller *tellers[number_of_tellers];       // array of all tellers
     Customer *customers[number_of_customers]; // array of all customers
@@ -123,15 +112,14 @@ int main(int argc, char **argv)
         float idle_time = INIT_IDLE_TIME * rand() / (float)(RAND_MAX);
         Teller *teller = new_teller(idle_time);
         tellers[i] = teller;
-        fprintf(file, "teller idle time: %f\n", tellers[i]->idle_time);
+        fprintf(file, "teller idle time: %f\n", tellers[i]->init_idle_time);
     }
 
-    /* Running simulations */
-    for (int sim_count = 0; sim_count < 2; sim_count++)
-    {
-        printf("------------- Simulation %d started --------------\n", sim_count + 1);
-        fprintf(file, "------------- Simulation %d started --------------\n", sim_count + 1);
+    float avg_time_spent_1; // average amount of time a customer spent in bank with single teller queue
 
+    /* Running simulations */
+    for (int sim_count = 0; sim_count < mode; sim_count++)
+    {
         PriorityQueue *event_queue = new_event_queue(); // Event queue
 
         /* Creating customer arrival events */
@@ -145,7 +133,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < number_of_tellers; i++)
         {
             tellers[i]->total_service_time = 0.0;
-            Event *teller_idle_event = new_teller_event(tellers[i], tellers[i]->idle_time);
+            Event *teller_idle_event = new_teller_event(tellers[i], tellers[i]->init_idle_time);
             enqueue_event(event_queue, teller_idle_event);
         }
 
@@ -159,7 +147,7 @@ int main(int argc, char **argv)
         float time_spent[number_of_customers]; // for standard deviation
         float max_wait_time = 0.0;
 
-        if (sim_count == 0)
+        if (sim_count == 0) // Single teller queue
         {
             LinkedList *teller_queue = new_teller_queue(); // Teller queue
 
@@ -253,7 +241,7 @@ int main(int argc, char **argv)
             }
             free(teller_queue);
         }
-        else
+        else // Multiple teller queues
         {
             /* Creating multiple teller queues */
             for (int i = 0; i < number_of_tellers; i++)
@@ -402,34 +390,44 @@ int main(int argc, char **argv)
         }
 
         float sd_time_spent = sqrtf(sq_diff_time_spent / total_customer_served);
+        avg_time_spent_1 = avg_time_spent;
 
-        printf("------------Statistics-------------\n");
-        printf("total customers served: %d\n", total_customer_served);
-        printf("total time required to serve all customers: %f\n", total_time_served);
-        printf("Number of tellers: %d\n", number_of_tellers);
-
-        if (sim_count == 0)
+        if (mode == 2)
         {
-            printf("Type of queuing: common\n");
-        }
-        else
-        {
-            printf("Type of queuing: multiple teller queues\n");
-        }
+            printf("------------Statistics-------------\n");
 
-        printf("Average time a customer spent in the bank: %f\n", avg_time_spent);
-        printf("Standard deviation: %f\n", sd_time_spent);
-        printf("Maximum wait time from the time a customer arrives to the time he/she is seen by a teller: %f\n", max_wait_time);
-        printf("Total amount of teller service time and total amount of teller idle time:\n");
-        for (int i = 0; i < number_of_tellers; i++)
-        {
-            printf("teller %d\t", i + 1);
-            printf("service time: %f\t\t", tellers[i]->total_service_time);
-            printf("idle time: %f\n", tellers[i]->total_idle_time);
-        }
+            printf("Number of customers: %d\n", number_of_customers);
+            printf("Number of tellers: %d\n", number_of_tellers);
+            printf("Simulation time: %f\n", simulation_time);
+            printf("Average service time: %f\n", avg_service_time);
 
-        printf("-------------- Simulation %d finished -------------\n", sim_count + 1);
-        fprintf(file, "-------------- Simulation %d finished -------------\n", sim_count + 1);
+            printf("total customers served: %d\n", total_customer_served);
+            printf("total time required to serve all customers: %f\n", total_time_served);
+            printf("Number of tellers: %d\n", number_of_tellers);
+
+            if (sim_count == 0)
+            {
+                printf("Type of queuing: common\n");
+            }
+            else
+            {
+                printf("Type of queuing: multiple teller queues\n");
+            }
+
+            printf("Average time a customer spent in the bank: %f\n", avg_time_spent);
+            printf("Standard deviation: %f\n", sd_time_spent);
+            printf("Maximum wait time from the time a customer arrives to the time he/she is seen by a teller: %f\n", max_wait_time);
+            printf("Total amount of teller service time and total amount of teller idle time:\n");
+            for (int i = 0; i < number_of_tellers; i++)
+            {
+                printf("teller %d\t", i + 1);
+                printf("service time: %f\t\t", tellers[i]->total_service_time);
+                printf("idle time: %f\n", tellers[i]->total_idle_time);
+            }
+
+            printf("-------------- Simulation finished -------------\n");
+            fprintf(file, "-------------- Simulation finished -------------\n");
+        }
     }
 
     /* Free tellers (customers are freed with teller queues and events are freed with event queue) */
@@ -439,6 +437,52 @@ int main(int argc, char **argv)
     }
 
     fclose(file);
+
+    return avg_time_spent_1;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 5)
+    {
+        printf("Enter all arguments\n");
+        exit(EXIT_SUCCESS);
+    }
+
+    int number_of_customers = atoi(argv[1]);
+    int number_of_tellers = atoi(argv[2]);
+    float simulation_time = atof(argv[3]);
+    float avg_service_time = atof(argv[4]);
+
+    run_simulation(number_of_customers, number_of_tellers, simulation_time, avg_service_time, 2);
+
+    FILE *fgp;
+    fgp = fopen("output/plot.txt", "w");
+    if (fgp == NULL)
+    {
+        perror("unable to open file");
+        exit(1);
+    }
+
+    for (int teller_count = 1; teller_count < 6; teller_count++)
+    {
+        float avg_time = run_simulation(number_of_customers, teller_count, simulation_time, avg_service_time, 1);
+        fprintf(fgp, "%d %f %0.2f\n", teller_count, avg_time, avg_time);
+    }
+
+    fclose(fgp);
+
+    /* Plot graph */
+    FILE *pipe = popen("gnuplot -persist", "w");
+    fprintf(pipe, "set terminal png\n");
+    fprintf(pipe, "set output '%s'\n", "output/plot.png");
+    fprintf(pipe, "set title 'average time a customer spent in bank versus number of tellers'\n");
+    fprintf(pipe, "set xlabel 'tellers'\n");
+    fprintf(pipe, "set ylabel 'avg time (seconds)'\n");
+    fprintf(pipe, "set style fill solid 1.0\n");
+    fprintf(pipe, "%s\n", "set style data histograms");
+    fprintf(pipe, "%s\n", "plot 'output/plot.txt' using 1:2 with linespoints notitle, '' using 1:2:3 with labels notitle");
+    fclose(pipe);
 
     return 0;
 }
