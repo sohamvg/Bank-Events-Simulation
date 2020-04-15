@@ -12,12 +12,15 @@ typedef enum
     TELLER_EVENT     // event represents a teller who has either completed serving a customer or has completed an idle time task
 } event_type;
 
+typedef int (* Action)(Teller *teller, Customer *customer);
+
 typedef struct Event
 {
     float time; // time when the event occurs
     event_type type;
     Customer *customer;
     Teller *teller;
+    Action action;
 } Event;
 
 /* Creates a new customer arrive event */
